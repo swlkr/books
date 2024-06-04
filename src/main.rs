@@ -1,12 +1,13 @@
 #![allow(non_snake_case)]
 
+use std::collections::HashSet;
+
 use ryde::*;
 
 #[router]
 fn routes(cx: Cx) -> Router {
     Router::new()
         .route("/", get(get_slash))
-        .route("/books", get(get_books))
         .route("/*files", get(get_files))
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(cx)
@@ -15,6 +16,16 @@ fn routes(cx: Cx) -> Router {
 #[derive(Clone)]
 struct Cx {
     db: Db,
+    x_request: bool
+}
+
+impl Cx {
+    fn render(&self, component: Component) -> Html {
+        match self.x_request {
+            true => component,
+            false => html! { <View>{component}</View> }
+        }
+    }
 }
 
 #[main]
@@ -26,7 +37,7 @@ async fn main() -> Result<()> {
     let db = db(dotenv("DATABASE_URL").expect("DATABASE_URL not found in .env")).await?;
     let _x = db.create_books().await?;
     tracing::debug!("listening on 9012");
-    serve("127.0.0.1:9012", routes(Cx { db })).await;
+    serve("127.0.0.1:9012", routes(Cx { db, x_request: false })).await;
     Ok(())
 }
 
@@ -35,31 +46,43 @@ struct Params {
     author: Option<Vec<String>>,
 }
 
-async fn get_books(
-    db: Db,
-    axum_extra::extract::Form(Params { author }): axum_extra::extract::Form<Params>,
-) -> Result<Html> {
-    // tracing::info!(author);
-    let books = match author {
-        None=> db.books().await?,
-        Some(authors)=> {
+use axum_extra::extract::Form;
+
+async fn get_slash(cx: Cx, db: Db, Form(Params { author }): Form<Params>) -> Result<Html> {
+    let authors = db.select_authors().await?;
+    let res = match author {
+        None => {
+            let books = db.books().await?;
+
+            html! {
+                <>
+                    <Authors authors=authors selected_authors=HashSet::default()/>
+                    <BookList books=books/>
+                </>
+            }
+        }
+        Some(selected_authors) => {
+            let selected = selected_authors.clone().into_iter().collect::<HashSet<_>>();
             let mut books = vec![];
-            for author in authors {
+            for author in selected_authors {
                 let rows = db.books_by_author(Some(author)).await?;
                 books.extend(rows);
             }
-            books
+
+            html! {
+                <>
+                    <Authors authors=authors selected=selected/>
+                    <BookList books=books/>
+                </>
+            }
         }
     };
 
-    Ok(html! { <BookList books=books/> })
+    Ok(cx.render(res))
 }
 
-async fn get_slash(db: Db) -> Result<Html> {
-    let authors = db.select_authors().await?;
-    let books = db.books().await?;
-
-    Ok(html! {
+fn View(elements: Elements) -> Component {
+    html! {
         <!DOCTYPE html> 
         <html>
             <head>{render_static_files!()}</head>
@@ -67,13 +90,11 @@ async fn get_slash(db: Db) -> Result<Html> {
                 <div class="">
                     <Search/>
                 </div>
-                <div class="grid grid-cols-12 gap-4">
-                    <Authors authors=authors/>
-                    <BookList books=books/>
-                </div>
+                <div class="grid grid-cols-12 gap-4">{elements}</div>
+
             </body>
         </html>
-    })
+    }
 }
 
 fn Search() -> Component {
@@ -106,11 +127,11 @@ fn BookList(books: Vec<Book>) -> Component {
     }
 }
 
-fn Authors(authors: Vec<SelectAuthors>) -> Component {
+fn Authors(authors: Vec<SelectAuthors>, selected: HashSet<String>) -> Component {
     html! {
         <div class="col-span-3 bg-white shadow-sm dark:bg-zinc-800 lg:h-[70vh] h-80 overflow-y-auto p-4 rounded-md">
             <h1 class="text-lg font-bold">Authors</h1>
-            <form x-get=url!(get_books) x-replace="BookList">
+            <form x-get=url!(get_slash) x-replace="BookList">
                 // hx-get=url!(get_books)
                 // hx-swap="outerHTML"
                 // hx-trigger="change"
@@ -146,7 +167,22 @@ fn Authors(authors: Vec<SelectAuthors>) -> Component {
                                     .map(|a| {
                                         html! {
                                             <div class="flex gap-2">
-                                                <input type="checkbox" name="author" value=a/>
+
+                                                {match selected.contains(a) {
+                                                    true => {
+                                                        html! {
+                                                            <input
+                                                                type="checkbox"
+                                                                name="author"
+                                                                value=a
+                                                                checked="checked"
+                                                            />
+                                                        }
+                                                    }
+                                                    false => {
+                                                        html! { <input type="checkbox" name="author" value=a/> }
+                                                    }
+                                                }}
                                                 <span class="text-sm">{a}</span>
                                             </div>
                                         }
@@ -177,6 +213,32 @@ where
         let Cx { db, .. } = Cx::from_ref(state);
 
         Ok(db)
+    }
+}
+
+#[async_trait]
+impl<S> FromRequestParts<S> for Cx
+where
+    Cx: FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = Error;
+
+    async fn from_request_parts(
+        parts: &mut http::request::Parts,
+        state: &S,
+    ) -> std::result::Result<Self, Self::Rejection> {
+                let headers = HeaderMap::from_request_parts(parts, state)
+            .await
+            .map_err(|_| Error::NotFound)?;
+        let x_request = match headers.get("x-request") {
+            Some(header_value) => header_value.as_bytes() == b"true",
+            None => false,
+        };
+        let mut cx = Cx::from_ref(state);
+        cx.x_request = x_request;
+
+        Ok(cx)
     }
 }
 
