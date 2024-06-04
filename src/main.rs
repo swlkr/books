@@ -63,7 +63,7 @@ async fn get_slash(db: Db) -> Result<Html> {
         <!DOCTYPE html> 
         <html>
             <head>{render_static_files!()}</head>
-            <body class="font-sans flex flex-col max-w-screen-xl mx-auto mt-8 gap-8 dark:bg-zinc-950 dark:text-white">
+            <body class="font-sans flex flex-col max-w-screen-xl mx-auto mt-8 gap-8 bg-gray-100 dark:bg-zinc-950 dark:text-white">
                 <div class="">
                     <Search/>
                 </div>
@@ -108,7 +108,7 @@ fn BookList(books: Vec<Book>) -> Component {
 
 fn Authors(authors: Vec<SelectAuthors>) -> Component {
     html! {
-        <div class="col-span-3 bg-zinc-800 lg:h-[70vh] h-80 overflow-y-auto p-4 rounded-md">
+        <div class="col-span-3 bg-white shadow-sm dark:bg-zinc-800 lg:h-[70vh] h-80 overflow-y-auto p-4 rounded-md">
             <h1 class="text-lg font-bold">Authors</h1>
             <form x-get=url!(get_books) x-replace="BookList">
                 // hx-get=url!(get_books)
