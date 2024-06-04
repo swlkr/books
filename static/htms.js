@@ -1,13 +1,18 @@
-document.querySelectorAll("form[x-get]").forEach((form) => {
+document.querySelectorAll("form[x-get], form[x-post]").forEach((form) => {
   const replaceTargets = form.getAttribute("x-replace")?.split(" ");
+  const pushUrl = form.hasAttribute("x-push-url");
   const updateTargets = [];
   form.addEventListener("change", (input) => {
-    let url = form.getAttribute("x-get");
+    let url = form.getAttribute("x-get") || form.getAttribute("x-post");
+    let method = "get";
+    if (form.hasAttribute("x-post")) {
+      method = "post";
+    }
     const searchParams = new URLSearchParams(new FormData(form)).toString();
     url = url + `?${searchParams.toString()}`
-    history.pushState({}, "", url);
+    if (pushUrl) { history.pushState({}, "", url); }
 
-    request("get", url)
+    request(method, url)
       .then((text) => {
         updateDom(text, replaceTargets, updateTargets);
       })
@@ -22,6 +27,9 @@ function hitTargets(dom, targets, merge) {
     const selector = `#${target}`;
     const next = dom.querySelector(selector);
     const current = document.querySelector(selector);
+
+    if(!current) { return; }
+
     switch(merge) {
       case "replace":
         current.replaceWith(next);

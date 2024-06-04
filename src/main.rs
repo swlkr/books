@@ -131,17 +131,12 @@ fn Authors(authors: Vec<SelectAuthors>, selected: HashSet<String>) -> Component 
     html! {
         <div class="col-span-3 bg-white shadow-sm dark:bg-zinc-800 lg:h-[70vh] h-80 overflow-y-auto p-4 rounded-md">
             <h1 class="text-lg font-bold">Authors</h1>
-            <form x-get=url!(get_slash) x-replace="BookList">
-                // hx-get=url!(get_books)
-                // hx-swap="outerHTML"
-                // hx-trigger="change"
-                // hx-target="#BookList"
-                // hx-push-url="true"
+            <form x-get=url!(get_slash) x-replace="BookList SelectedAuthorList" x-push-url>
                 {authors
                     .iter()
                     .map(|author| {
                         html! {
-                            <details class="[&_svg]:open:-rotate-180 select-none">
+                            <details class="[&_svg]:open:-rotate-180 select-none appearance-none">
                                 <summary class="flex justify-between cursor-pointer dark:hover:bg-zinc-600 hover:bg-zinc-100 p-1 rounded-md items-center">
                                     <div class="flex gap-2">
                                         <div>{&author.letter}</div>
