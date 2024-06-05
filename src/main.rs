@@ -1,8 +1,7 @@
 #![allow(non_snake_case)]
 
-use std::collections::HashSet;
-
 use ryde::*;
+use std::collections::HashSet;
 
 #[router]
 fn routes(cx: Cx) -> Router {
@@ -16,14 +15,14 @@ fn routes(cx: Cx) -> Router {
 #[derive(Clone)]
 struct Cx {
     db: Db,
-    x_request: bool
+    x_request: bool,
 }
 
 impl Cx {
     fn render(&self, component: Component) -> Html {
         match self.x_request {
             true => component,
-            false => html! { <View>{component}</View> }
+            false => html! { <View>{component}</View> },
         }
     }
 }
@@ -37,7 +36,14 @@ async fn main() -> Result<()> {
     let db = db(dotenv("DATABASE_URL").expect("DATABASE_URL not found in .env")).await?;
     let _x = db.create_books().await?;
     tracing::debug!("listening on 9012");
-    serve("127.0.0.1:9012", routes(Cx { db, x_request: false })).await;
+    serve(
+        "127.0.0.1:9012",
+        routes(Cx {
+            db,
+            x_request: false,
+        }),
+    )
+    .await;
     Ok(())
 }
 
@@ -83,7 +89,7 @@ async fn get_slash(cx: Cx, db: Db, Form(Params { author }): Form<Params>) -> Res
 
 fn View(elements: Elements) -> Component {
     html! {
-        <!DOCTYPE html> 
+        <!DOCTYPE html>
         <html>
             <head>{render_static_files!()}</head>
             <body class="font-sans flex flex-col max-w-screen-xl mx-auto mt-8 gap-8 bg-gray-100 dark:bg-zinc-950 dark:text-white">
@@ -223,7 +229,7 @@ where
         parts: &mut http::request::Parts,
         state: &S,
     ) -> std::result::Result<Self, Self::Rejection> {
-                let headers = HeaderMap::from_request_parts(parts, state)
+        let headers = HeaderMap::from_request_parts(parts, state)
             .await
             .map_err(|_| Error::NotFound)?;
         let x_request = match headers.get("x-request") {
