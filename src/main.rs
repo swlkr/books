@@ -220,7 +220,7 @@ fn SelectedAuthorList(authors: &Vec<String>) -> Component {
             <div class="p-2 text-xs">{authors.iter().map(|a| html! { <p>{a}</p> })}</div>
             <form
                 x-get=url!(get_slash)
-                x-replace="BookList SelelectedAuthorList AuthorCheckboxes"
+                x-replace="BookList SelectedAuthorList AuthorCheckboxes"
                 x-push-url
             >
                 <button class="w-full py-2 text-sm font-medium text-center rounded dark:hover:bg-gray-600 hover:bg-black hover:text-white">
