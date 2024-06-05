@@ -1,7 +1,6 @@
 #![allow(non_snake_case)]
 
 use ryde::*;
-use std::collections::HashSet;
 
 #[router]
 fn routes(cx: Cx) -> Router {
@@ -62,13 +61,13 @@ async fn get_slash(cx: Cx, db: Db, Form(Params { author }): Form<Params>) -> Res
 
             html! {
                 <>
-                    <Authors authors=authors selected_authors=HashSet::default()/>
+                    <Authors authors=authors selected_authors=vec![]/>
                     <BookList books=books/>
                 </>
             }
         }
         Some(selected_authors) => {
-            let selected = selected_authors.clone().into_iter().collect::<HashSet<_>>();
+            let selected = selected_authors.clone().into_iter().collect::<Vec<_>>();
             let mut books = vec![];
             for author in selected_authors {
                 let rows = db.books_by_author(Some(author)).await?;
@@ -133,67 +132,100 @@ fn BookList(books: Vec<Book>) -> Component {
     }
 }
 
-fn Authors(authors: Vec<SelectAuthors>, selected: HashSet<String>) -> Component {
+fn Authors(authors: Vec<SelectAuthors>, selected: Vec<String>) -> Component {
     html! {
-        <div class="col-span-3 bg-white shadow-sm dark:bg-zinc-800 lg:h-[70vh] h-80 overflow-y-auto p-4 rounded-md">
-            <h1 class="text-lg font-bold">Authors</h1>
-            <form x-get=url!(get_slash) x-replace="BookList SelectedAuthorList" x-push-url>
-                {authors
-                    .iter()
-                    .map(|author| {
-                        html! {
-                            <details class="[&_svg]:open:-rotate-180 select-none appearance-none">
-                                <summary class="flex justify-between cursor-pointer dark:hover:bg-zinc-600 hover:bg-zinc-100 p-1 rounded-md items-center">
-                                    <div class="flex gap-2">
-                                        <div>{&author.letter}</div>
-                                        <div>"(" {author.author_count} ")"</div>
-                                    </div>
-                                    <svg
-                                        class="rotate-0 transform transition-all duration-150"
-                                        fill="none"
-                                        height="20"
-                                        width="20"
-                                        stroke="currentColor"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        viewBox="0 0 24 24"
-                                    >
-                                        <polyline points="6 9 12 15 18 9"></polyline>
-                                    </svg>
-                                </summary>
-                                {&author
-                                    .authors
-                                    .split(",,,")
-                                    .map(|a| {
-                                        html! {
+        <div class="col-span-3">
+            <div class="bg-white shadow-sm dark:bg-zinc-800 lg:h-[70vh] h-80 overflow-y-auto rounded-md">
+                <div class="p-4">
+                    <h1 class="text-lg font-bold">Authors</h1>
+                    <form
+                        id="AuthorCheckboxes"
+                        x-get=url!(get_slash)
+                        x-replace="BookList SelectedAuthorList"
+                        x-push-url
+                    >
+                        {authors
+                            .iter()
+                            .map(|author| {
+                                html! {
+                                    <details class="[&_svg]:open:-rotate-180 select-none appearance-none">
+                                        <summary class="flex justify-between cursor-pointer dark:hover:bg-zinc-600 hover:bg-zinc-100 p-1 rounded-md items-center">
                                             <div class="flex gap-2">
-
-                                                {match selected.contains(a) {
-                                                    true => {
-                                                        html! {
-                                                            <input
-                                                                type="checkbox"
-                                                                name="author"
-                                                                value=a
-                                                                checked="checked"
-                                                            />
-                                                        }
-                                                    }
-                                                    false => {
-                                                        html! { <input type="checkbox" name="author" value=a/> }
-                                                    }
-                                                }}
-                                                <span class="text-sm">{a}</span>
+                                                <div>{&author.letter}</div>
+                                                <div>"(" {author.author_count} ")"</div>
                                             </div>
-                                        }
-                                    })}
+                                            <svg
+                                                class="rotate-0 transform transition-all duration-150"
+                                                fill="none"
+                                                height="20"
+                                                width="20"
+                                                stroke="currentColor"
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <polyline points="6 9 12 15 18 9"></polyline>
+                                            </svg>
+                                        </summary>
+                                        {&author
+                                            .authors
+                                            .split(",,,")
+                                            .map(|a| {
+                                                html! {
+                                                    <div class="flex gap-2">
 
-                            </details>
-                        }
-                    })}
+                                                        {match selected.contains(&a.to_string()) {
+                                                            true => {
+                                                                html! {
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        name="author"
+                                                                        value=a
+                                                                        checked="checked"
+                                                                    />
+                                                                }
+                                                            }
+                                                            false => {
+                                                                html! { <input type="checkbox" name="author" value=a/> }
+                                                            }
+                                                        }}
+                                                        <span class="text-sm">{a}</span>
+                                                    </div>
+                                                }
+                                            })}
 
-                <input type="submit" value="submit"/>
+                                    </details>
+                                }
+                            })}
+
+                    </form>
+                </div>
+            </div>
+            <SelectedAuthorList authors=&selected/>
+        </div>
+    }
+}
+
+fn SelectedAuthorList(authors: &Vec<String>) -> Component {
+    if authors.is_empty() {
+        return html! { <div id="SelectedAuthorList"></div> };
+    }
+
+    html! {
+        <div
+            id="SelectedAuthorList"
+            class="p-1 bg-white border-t dark:border-black dark:bg-white/10"
+        >
+            <div class="p-2 text-xs">{authors.iter().map(|a| html! { <p>{a}</p> })}</div>
+            <form
+                x-get=url!(get_slash)
+                x-replace="BookList SelelectedAuthorList AuthorCheckboxes"
+                x-push-url
+            >
+                <button class="w-full py-2 text-sm font-medium text-center rounded dark:hover:bg-gray-600 hover:bg-black hover:text-white">
+                    Clear authors
+                </button>
             </form>
         </div>
     }

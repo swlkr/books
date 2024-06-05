@@ -1,26 +1,41 @@
-document.querySelectorAll("form[x-get], form[x-post]").forEach((form) => {
+document.body.addEventListener("submit", (e) => {
+  if (e.target.closest("form").hasAttribute("x-get")) {
+    e.preventDefault();
+    const form = e.target.closest("form");
+    sendRequest(form);
+  }
+}, true);
+
+document.body.addEventListener("change", (e) => {
+  if (e.target.closest("form").hasAttribute("x-get")) {
+    e.preventDefault();
+    const form = e.target.closest("form");
+    sendRequest(form);
+  }
+}, true);
+
+function sendRequest(form) {
   const replaceTargets = form.getAttribute("x-replace")?.split(" ");
   const pushUrl = form.hasAttribute("x-push-url");
   const updateTargets = [];
-  form.addEventListener("change", (input) => {
-    let url = form.getAttribute("x-get") || form.getAttribute("x-post");
-    let method = "get";
-    if (form.hasAttribute("x-post")) {
-      method = "post";
-    }
-    const searchParams = new URLSearchParams(new FormData(form)).toString();
-    url = url + `?${searchParams.toString()}`
-    if (pushUrl) { history.pushState({}, "", url); }
 
-    request(method, url)
-      .then((text) => {
-        updateDom(text, replaceTargets, updateTargets);
-      })
-      .catch((err) => {
-        console.error(err);
-      });
-  });
-});
+  let url = form.getAttribute("x-get") || form.getAttribute("x-post");
+  let method = "get";
+  if (form.hasAttribute("x-post")) {
+    method = "post";
+  }
+  const searchParams = new URLSearchParams(new FormData(form)).toString();
+  url = url + `?${searchParams.toString()}`
+  if (pushUrl) { history.pushState({}, "", url); }
+
+  request(method, url)
+    .then((text) => {
+      updateDom(text, replaceTargets, updateTargets);
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+}
 
 function hitTargets(dom, targets, merge) {
   targets.forEach((target) => {
